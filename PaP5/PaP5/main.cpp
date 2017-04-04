@@ -399,18 +399,20 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	CreateDDSTextureFromFile(device, L"TestCube.dds", nullptr, &boxshaderView, 0);
 	CreateDDSTextureFromFile(device, L"Teddy_Idle.dds", nullptr, &teddyshaderView, 0);
 	CreateDDSTextureFromFile(device, L"BoneTexture.dds", nullptr, &boneshaderView, 0);
+#pragma endregion
 
 #pragma region Teddy Buffers
 
 	std::vector<FBXData> teddyfbxVerts;
 	FBXE::Facade teddy;
 
-
 	teddyfbxVerts = teddy.LoadFBX(teddyfbxVerts, "Teddy_Idle.fbx");
 	joints = teddy.GetJoints(joints, "Teddy_Idle.fbx");
 	int tedVerts = teddyfbxVerts.size();
 	teddyVertcount = tedVerts;
 	int tedIndexes = tedVerts;
+
+	frames = teddy.GetKeyframes(frames, "Teddy_Idle.fbx");
 
 	SIMPLE_VERTEX* teddyvertices = new SIMPLE_VERTEX[tedVerts];
 
@@ -454,7 +456,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	fbxVerts = myF.LoadFBX(fbxVerts, "Box_Idle.fbx");
 	myF.FbxToBinary("Box_Idle.fbx", "Box.bin");
 	//joints = myF.GetJoints(joints, "Box_Idle.fbx");
-	frames = myF.GetKeyframes(frames, "Box_Idle.fbx");
+	//frames = myF.GetKeyframes(frames, "Box_Idle.fbx");
 
 	int m_vertexCount = fbxVerts.size();
 	vertCount = m_vertexCount;
@@ -493,7 +495,6 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	boxindexBufferDesc.StructureByteStride = 0;
 
 #pragma endregion
-
 
 #pragma region Bone Loading
 
@@ -542,6 +543,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 
 #pragma endregion
 
+#pragma region Overall Descriptor Setup 
 	groundBufferdesc.Usage = D3D11_USAGE_IMMUTABLE;
 	groundBufferdesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	groundBufferdesc.CPUAccessFlags = NULL;
@@ -752,7 +754,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	view.ProjectionMatrix = projection;
 #pragma endregion
 
-#pragma region Overall Buffer Setup
+#pragma region Overall Buffer Creation
 	D3D11_SUBRESOURCE_DATA InitData;
 	InitData.pSysMem = ground;
 	InitData.SysMemPitch = 0;
@@ -1061,7 +1063,9 @@ bool WIN_APP::Run()
 	deviceContext->DrawIndexed(36, 0, 0);
 
 	deviceContext->ClearDepthStencilView(stencilView, D3D11_CLEAR_DEPTH, 1, 0);
+#pragma endregion
 
+#pragma region Ground Setup and Drawing
 	deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
 	deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
 	deviceContext->IASetVertexBuffers(0, 1, &groundBuffer, &stride, &offset);
