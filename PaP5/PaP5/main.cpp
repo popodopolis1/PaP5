@@ -18,11 +18,6 @@ using namespace DirectX;
 #include "DDSTextureLoader.h"
 #include "Facade.h"
 
-struct FBXVertex
-{
-	float pos[3];
-};
-
 class WIN_APP
 {
 	HRESULT							hr;
@@ -46,6 +41,9 @@ class WIN_APP
 	ID3D11DepthStencilState *stencilState;
 	ID3D11DepthStencilView* stencilView;
 	D3D11_DEPTH_STENCIL_VIEW_DESC stencilViewdesc;
+
+	ID3D11RasterizerState* solidState;
+	ID3D11RasterizerState* wireState;
 
 	XMMATRIX Camera;
 
@@ -105,7 +103,6 @@ public:
 	ID3D11Buffer * viewConstant;
 	D3D11_BUFFER_DESC viewConstdesc;
 
-	ID3D11ShaderResourceView *skyshaderView;
 	ID3D11ShaderResourceView *groundshaderView;
 
 	ID3D11SamplerState *skyboxSample;
@@ -239,6 +236,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 		&deviceContext);
 #pragma endregion
 
+#pragma region RTV Setup
 	ID3D11Resource *p_RT;
 	swapChain->GetBuffer(0, __uuidof(p_RT), reinterpret_cast<void**>(&p_RT));
 
@@ -251,8 +249,32 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	viewport.Height = 720;
 	viewport.MinDepth = 0;
 	viewport.MaxDepth = 1;
+#pragma endregion
 
-#pragma region Ground and Light Initialization
+#pragma region Rasterizer Setup
+
+	D3D11_RASTERIZER_DESC descRas = {};
+	descRas.FillMode = D3D11_FILL_SOLID;
+	descRas.CullMode = D3D11_CULL_FRONT;
+	descRas.FrontCounterClockwise = FALSE;
+	descRas.DepthBias = 0;
+	descRas.SlopeScaledDepthBias = 0.0f;
+	descRas.DepthBiasClamp = 0.0f;
+	descRas.DepthClipEnable = TRUE;
+	descRas.ScissorEnable = FALSE;
+	descRas.MultisampleEnable = FALSE;
+	descRas.AntialiasedLineEnable = TRUE;
+
+	device->CreateRasterizerState(&descRas, &solidState);
+
+	descRas.FillMode = D3D11_FILL_WIREFRAME;
+	descRas.CullMode = D3D11_CULL_BACK;
+
+	device->CreateRasterizerState(&descRas, &wireState);
+
+#pragma endregion
+
+#pragma region Ground Quad and Light Initialization
 	ground[0].pos.m128_f32[0] = -15;
 	ground[0].pos.m128_f32[1] = -5;
 	ground[0].pos.m128_f32[2] = -15;
@@ -374,13 +396,60 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	CreateDDSTextureFromFile(device, L"Teddy_Idle.dds", nullptr, &teddyshaderView, 0);
 	CreateDDSTextureFromFile(device, L"BoneTexture.dds", nullptr, &boneshaderView, 0);
 
-#pragma region Box Loading
+#pragma region Teddy Buffers
+
+	std::vector<FBXData> teddyfbxVerts;
+	FBXE::Facade teddy;
+
+
+	teddyfbxVerts = teddy.LoadFBX(teddyfbxVerts, "Teddy_Idle.fbx");
+	joints = teddy.GetJoints(joints, "Teddy_Idle.fbx");
+	int tedVerts = teddyfbxVerts.size();
+	teddyVertcount = tedVerts;
+	int tedIndexes = tedVerts;
+
+	SIMPLE_VERTEX* teddyvertices = new SIMPLE_VERTEX[tedVerts];
+
+	unsigned int* teddyindices = new unsigned int[tedIndexes];
+
+	FBXData* tedarr = &teddyfbxVerts[0];
+
+	for (int i = 0; i < tedVerts; i++)
+	{
+		teddyvertices[i].pos = { tedarr[i].verts.x, tedarr[i].verts.y, tedarr[i].verts.z, 0.0f };
+		teddyvertices[i].color = { 0, 0, 0, 0 };
+		teddyvertices[i].uv.x = tedarr[i].uvs.u;
+		teddyvertices[i].uv.y = tedarr[i].uvs.v;
+		teddyvertices[i].normal.x = tedarr[i].norms.x;
+		teddyvertices[i].normal.y = tedarr[i].norms.y;
+		teddyvertices[i].normal.z = tedarr[i].norms.z;
+
+		teddyindices[i] = i;
+	}
+
+	teddyvertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	teddyvertexBufferDesc.ByteWidth = sizeof(SIMPLE_VERTEX)*tedVerts;
+	teddyvertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	teddyvertexBufferDesc.CPUAccessFlags = 0;
+	teddyvertexBufferDesc.MiscFlags = 0;
+	teddyvertexBufferDesc.StructureByteStride = 0;
+
+	teddyindexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
+	teddyindexBufferDesc.ByteWidth = sizeof(unsigned long)*tedIndexes;
+	teddyindexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
+	teddyindexBufferDesc.CPUAccessFlags = 0;
+	teddyindexBufferDesc.MiscFlags = 0;
+	teddyindexBufferDesc.StructureByteStride = 0;
+
+#pragma endregion
+
+#pragma region FbxBox Loading
 	std::vector<FBXData> fbxVerts;
 	//
 	FBXE::Facade myF;
 	fbxVerts = myF.LoadFBX(fbxVerts, "Box_Idle.fbx");
 	myF.FbxToBinary("Box_Idle.fbx", "Box.bin");
-	joints = myF.GetJoints(joints, "Box_Idle.fbx");
+	//joints = myF.GetJoints(joints, "Box_Idle.fbx");
 	frames = myF.GetKeyframes(frames, "Box_Idle.fbx");
 
 	int m_vertexCount = fbxVerts.size();
@@ -420,54 +489,8 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	boxindexBufferDesc.StructureByteStride = 0;
 
 #pragma endregion
-	/*
-	#pragma region Teddy Loading
-
-	std::vector<FBXData> teddyfbxVerts;
-	FBXE::Facade ted;
 
 
-	teddyfbxVerts = ted.LoadFBX(teddyfbxVerts, "Teddy_Idle.fbx");
-	//joints = ted.GetJoints(joints, "Teddy_Idle.fbx");
-	int tedVerts = teddyfbxVerts.size();
-	teddyVertcount = tedVerts;
-	int tedIndexes = tedVerts;
-
-	SIMPLE_VERTEX* teddyvertices = new SIMPLE_VERTEX[tedVerts];
-
-	unsigned int* teddyindices = new unsigned int[tedIndexes];
-
-	FBXData* tedarr = &teddyfbxVerts[0];
-
-	for (int i = 0; i < tedVerts; i++)
-	{
-	teddyvertices[i].pos = { tedarr[i].verts.x, tedarr[i].verts.y, tedarr[i].verts.z, 0.0f };
-	teddyvertices[i].color = { 0, 0, 0, 0 };
-	teddyvertices[i].uv.x = tedarr[i].uvs.u;
-	teddyvertices[i].uv.y = tedarr[i].uvs.v;
-	teddyvertices[i].normal.x = tedarr[i].norms.x;
-	teddyvertices[i].normal.y = tedarr[i].norms.y;
-	teddyvertices[i].normal.z = tedarr[i].norms.z;
-
-	teddyindices[i] = i;
-	}
-
-	teddyvertexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	teddyvertexBufferDesc.ByteWidth = sizeof(SIMPLE_VERTEX)*tedVerts;
-	teddyvertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	teddyvertexBufferDesc.CPUAccessFlags = 0;
-	teddyvertexBufferDesc.MiscFlags = 0;
-	teddyvertexBufferDesc.StructureByteStride = 0;
-
-	teddyindexBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	teddyindexBufferDesc.ByteWidth = sizeof(unsigned long)*tedIndexes;
-	teddyindexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-	teddyindexBufferDesc.CPUAccessFlags = 0;
-	teddyindexBufferDesc.MiscFlags = 0;
-	teddyindexBufferDesc.StructureByteStride = 0;
-
-	#pragma endregion
-	*/
 #pragma region Bone Loading
 
 	vector<FBXData> bonefbxVerts;
@@ -696,6 +719,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	bonesampleDesc.BorderColor[3] = 1;
 #pragma endregion
 
+#pragma region Matrix and Bone Setup
 	device->CreateDepthStencilView(depthStencil, &stencilViewdesc, &stencilView);
 
 	view.ViewMatrix = XMMatrixInverse(0, XMMatrixTranslation(0, 5, -10));
@@ -719,12 +743,12 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 
 	XMMATRIX projection;
 
-	projection = XMMatrixPerspectiveFovLH(XMConvertToRadians(65.0f), (1280.0f / 720.0f), 0.1f, 100.0f);
+	projection = XMMatrixPerspectiveFovLH(XMConvertToRadians(65.0f), (1280.0f / 720.0f), 0.1f, 1000.0f);
 
 	view.ProjectionMatrix = projection;
+#pragma endregion
 
-
-#pragma region Buffer Creation
+#pragma region Overall Buffer Setup
 	D3D11_SUBRESOURCE_DATA InitData;
 	InitData.pSysMem = ground;
 	InitData.SysMemPitch = 0;
@@ -735,10 +759,9 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	InitData.pSysMem = &view;
 	device->CreateBuffer(&viewConstdesc, &InitData, &viewConstant);
 
-	// skybox vertex
 	InitData.pSysMem = cube;
 	device->CreateBuffer(&skyVertexdesc, &InitData, &skyVertex);
-	//ground vertex
+
 	InitData.pSysMem = ground;
 	device->CreateBuffer(&groundBufferdesc, &InitData, &groundBuffer);
 
@@ -774,11 +797,11 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	InitData.pSysMem = indices;
 	device->CreateBuffer(&boxindexBufferDesc, &InitData, &boxIndex);
 
-	//InitData.pSysMem = teddyvertices;
-	//device->CreateBuffer(&teddyvertexBufferDesc, &InitData, &teddyVertex);
-	//
-	//InitData.pSysMem = teddyindices;
-	//device->CreateBuffer(&teddyindexBufferDesc, &InitData, &teddyIndex);
+	InitData.pSysMem = teddyvertices;
+	device->CreateBuffer(&teddyvertexBufferDesc, &InitData, &teddyVertex);
+	
+	InitData.pSysMem = teddyindices;
+	device->CreateBuffer(&teddyindexBufferDesc, &InitData, &teddyIndex);
 
 	InitData.pSysMem = bonevertices;
 	device->CreateBuffer(&bonevertexBufferDesc, &InitData, &boneVertex);
@@ -788,14 +811,16 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 
 	delete[] vertices;
 	delete[] indices;
-	//delete[] teddyvertices;
-	//delete[] teddyindices;
+	delete[] teddyvertices;
+	delete[] teddyindices;
 	delete[] bonevertices;
 	delete[] boneindices;
 
-	indices = 0; vertices = 0;
+	indices = 0; 
+	vertices = 0;
 #pragma endregion
 
+#pragma region Shader Setup
 	device->CreateVertexShader(GroundShader_VS, sizeof(GroundShader_VS), nullptr, &groundVertshader);
 	device->CreatePixelShader(GroundShader_PS, sizeof(GroundShader_PS), nullptr, &groundPixshader);
 
@@ -835,65 +860,49 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 
 	device->CreateInputLayout(groundLayout, ARRAYSIZE(groundLayout), GroundShader_VS, sizeof(GroundShader_VS), &groundInputlayout);
 	device->CreateInputLayout(boxLayout, ARRAYSIZE(boxLayout), GroundShader_VS, sizeof(GroundShader_VS), &boxInputLayout);
+#pragma endregion
 
 }
 
-
-
 bool WIN_APP::Run()
 {
+#pragma region View And Light Run
 	view.ViewMatrix = XMMatrixInverse(0, view.ViewMatrix);
 
 	light.camPosition = { view.ViewMatrix.r[3].m128_f32[0], view.ViewMatrix.r[3].m128_f32[1], view.ViewMatrix.r[3].m128_f32[2], view.ViewMatrix.r[3].m128_f32[3] };
+#pragma endregion
 
 #pragma region Camera and Light Controls
 	if (GetAsyncKeyState(VK_SPACE))
 	{
-		World bone;
-		JointVertex boneJoint;
-		boneJoint = joints[n];
-		bone.WorldMatrix = XMMatrixIdentity();
-		bone.WorldMatrix.r[3].m128_f32[0] = boneJoint.x + frames[f].x;
-		bone.WorldMatrix.r[3].m128_f32[1] = boneJoint.y + frames[f].y;
-		bone.WorldMatrix.r[3].m128_f32[2] = boneJoint.z + frames[f].z;
-
-		boneWorld.push_back(bone);
-		n++;
-		if (n > 3)
-		{
-			n = 0;
-		}
-		f++;
-		if (f > 29)
-		{
-			f = 0;
-		}
+		XMMATRIX straight = XMMatrixTranslation(0, 0.05f * 2, 0);
+		view.ViewMatrix = XMMatrixMultiply(straight, view.ViewMatrix);
 	}
 	if (GetAsyncKeyState(VK_LCONTROL))
 	{
-		XMMATRIX down = XMMatrixTranslation(0, -0.01f * 2, 0);
+		XMMATRIX down = XMMatrixTranslation(0, -0.05f * 2, 0);
 		view.ViewMatrix = XMMatrixMultiply(down, view.ViewMatrix);
 	}
 	if (GetAsyncKeyState('A'))
 	{
-		XMMATRIX left = XMMatrixTranslation(-0.01f * 2, 0, 0);
+		XMMATRIX left = XMMatrixTranslation(-0.05f * 2, 0, 0);
 		view.ViewMatrix = XMMatrixMultiply(left, view.ViewMatrix);
 	}
 	if (GetAsyncKeyState('D'))
 	{
-		XMMATRIX right = XMMatrixTranslation(0.01f * 2, 0, 0);
+		XMMATRIX right = XMMatrixTranslation(0.05f * 2, 0, 0);
 		view.ViewMatrix = XMMatrixMultiply(right, view.ViewMatrix);
 	}
 
 	if (GetAsyncKeyState('W'))
 	{
-		XMMATRIX forward = XMMatrixTranslation(0, 0, 0.01f * 2);
+		XMMATRIX forward = XMMatrixTranslation(0, 0, 0.05f * 2);
 		view.ViewMatrix = XMMatrixMultiply(forward, view.ViewMatrix);
 	}
 
 	if (GetAsyncKeyState('S'))
 	{
-		XMMATRIX backward = XMMatrixTranslation(0, 0, -0.01f * 2);
+		XMMATRIX backward = XMMatrixTranslation(0, 0, -0.05f * 2);
 		view.ViewMatrix = XMMatrixMultiply(backward, view.ViewMatrix);
 	}
 
@@ -966,8 +975,8 @@ bool WIN_APP::Run()
 
 	}
 
-	light.spotPosition = { view.ViewMatrix.r[3].m128_f32[0], view.ViewMatrix.r[3].m128_f32[1], view.ViewMatrix.r[3].m128_f32[2], view.ViewMatrix.r[3].m128_f32[3] };
-	light.spotDirection = { view.ViewMatrix.r[2].m128_f32[0], view.ViewMatrix.r[2].m128_f32[1], view.ViewMatrix.r[2].m128_f32[2], view.ViewMatrix.r[2].m128_f32[3] };
+	//light.spotPosition = { view.ViewMatrix.r[3].m128_f32[0], view.ViewMatrix.r[3].m128_f32[1], view.ViewMatrix.r[3].m128_f32[2], view.ViewMatrix.r[3].m128_f32[3] };
+	//light.spotDirection = { view.ViewMatrix.r[2].m128_f32[0], view.ViewMatrix.r[2].m128_f32[1], view.ViewMatrix.r[2].m128_f32[2], view.ViewMatrix.r[2].m128_f32[3] };
 
 	if (GetAsyncKeyState(0x30))
 	{
@@ -998,7 +1007,7 @@ bool WIN_APP::Run()
 
 	deviceContext->ClearDepthStencilView(stencilView, D3D11_CLEAR_DEPTH, 1, 0);
 
-
+#pragma region Mapping
 	D3D11_MAPPED_SUBRESOURCE viewMap;
 	D3D11_MAPPED_SUBRESOURCE groundMap;
 	D3D11_MAPPED_SUBRESOURCE lightMap;
@@ -1030,13 +1039,15 @@ bool WIN_APP::Run()
 		memcpy_s(boneMap.pData, sizeof(World), &boneWorld[i], sizeof(World));
 		deviceContext->Unmap(boneConstant[i], 0);
 	}
+#pragma endregion
 
+#pragma region Device Context Setup
 	deviceContext->OMSetRenderTargets(1, &RTV, stencilView);
 	deviceContext->OMSetDepthStencilState(stencilState, 1);
 
 	deviceContext->RSSetViewports(1, &viewport);
 
-	float rgba[4] = { 0.0f, 0.0f, 1.0f, 0.0f };
+	float rgba[4] = { 0.0f, 1.0f, 1.0f, 0.0f };
 	deviceContext->ClearRenderTargetView(RTV, rgba);
 
 	deviceContext->PSSetConstantBuffers(0, 1, &lightBuffer);
@@ -1058,48 +1069,71 @@ bool WIN_APP::Run()
 	deviceContext->PSSetShaderResources(0, 1, &groundshaderView);
 	deviceContext->PSSetSamplers(0, 1, &groundSample);
 
+	deviceContext->RSSetState(solidState);
+
 	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+#pragma endregion
 
 	deviceContext->DrawIndexed(12, 0, 0);
 
-	if (ModelRendered == 1)
-	{
-		deviceContext->VSSetConstantBuffers(0, 1, &boxConstant);
-		deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
-		deviceContext->IASetVertexBuffers(0, 1, &boxVertex, &stride, &offset);
-		deviceContext->IASetIndexBuffer(boxIndex, DXGI_FORMAT_R32_UINT, 0);
-
-		deviceContext->IASetInputLayout(groundInputlayout);
-		deviceContext->VSSetShader(groundVertshader, NULL, 0);
-		deviceContext->PSSetShader(groundPixshader, NULL, 0);
-		deviceContext->PSSetShaderResources(0, 1, &boxshaderView);
-		deviceContext->PSSetSamplers(0, 1, &boxSample);
-
-		deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		deviceContext->DrawIndexed(vertCount, 0, 0);
-	}
-
-	//if (ModelRendered == 2)
+#pragma region Model Selection And Drawing
+	//if (ModelRendered == 1)
 	//{
-	//	deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
+	//	deviceContext->VSSetConstantBuffers(0, 1, &boxConstant);
 	//	deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
-	//	deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
-	//	deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
+	//	deviceContext->IASetVertexBuffers(0, 1, &boxVertex, &stride, &offset);
+	//	deviceContext->IASetIndexBuffer(boxIndex, DXGI_FORMAT_R32_UINT, 0);
 	//
 	//	deviceContext->IASetInputLayout(groundInputlayout);
 	//	deviceContext->VSSetShader(groundVertshader, NULL, 0);
 	//	deviceContext->PSSetShader(groundPixshader, NULL, 0);
-	//	deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
-	//	deviceContext->PSSetSamplers(0, 1, &teddySample);
+	//	deviceContext->PSSetShaderResources(0, 1, &boxshaderView);
+	//	deviceContext->PSSetSamplers(0, 1, &boxSample);
 	//
 	//	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	//
-	//	deviceContext->DrawIndexed(teddyVertcount, 0, 0);
+	//	deviceContext->DrawIndexed(vertCount, 0, 0);
 	//}
+
+	if (ModelRendered == 2)
+	{
+		deviceContext->RSSetState(wireState);
+		deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
+		deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
+		deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
+		deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
+	
+		deviceContext->IASetInputLayout(groundInputlayout);
+		deviceContext->VSSetShader(groundVertshader, NULL, 0);
+		deviceContext->PSSetShader(groundPixshader, NULL, 0);
+		deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
+		deviceContext->PSSetSamplers(0, 1, &teddySample);
+	
+		deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	
+		deviceContext->DrawIndexed(teddyVertcount, 0, 0);
+	}
 
 	if (ModelRendered == 3)
 	{
+		deviceContext->RSSetState(wireState);
+		deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
+		deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
+		deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
+		deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
+
+		deviceContext->IASetInputLayout(groundInputlayout);
+		deviceContext->VSSetShader(groundVertshader, NULL, 0);
+		deviceContext->PSSetShader(groundPixshader, NULL, 0);
+		deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
+		deviceContext->PSSetSamplers(0, 1, &teddySample);
+
+		deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+		deviceContext->DrawIndexed(teddyVertcount, 0, 0);
+
+		deviceContext->RSSetState(solidState);
+
 		for (size_t i = 0; i < joints.size(); i++)
 		{
 			deviceContext->VSSetConstantBuffers(0, 1, &boneConstant[i]);
@@ -1118,13 +1152,48 @@ bool WIN_APP::Run()
 			deviceContext->DrawIndexed(boneVertcount, 0, 0);
 		}
 	}
+#pragma endregion
 
 	swapChain->Present(0, 0);
 
 	return true;
 }
+
 bool WIN_APP::ShutDown()
 {
+	//device->Release();
+	//deviceContext->Release();
+	//RTV->Release();
+	//swapChain->Release();
+	//groundInputlayout->Release();
+	//depthStencil->Release();
+	//stencilState->Release();
+	//stencilView->Release();
+	//solidState->Release();
+	//wireState->Release();
+	//viewConstant->Release();
+	//groundshaderView->Release();
+	//groundSample->Release();
+	//groundBuffer->Release();
+	//groundConstant->Release();
+	//groundIndex->Release();
+	//groundVertshader->Release();
+	//groundPixshader->Release();
+	//lightBuffer->Release();
+	//teddyVertex->Release();
+	//teddyIndex->Release();
+	//teddyshaderView->Release();
+	//teddySample->Release();
+	//boneVertex->Release();
+	//boneIndex->Release();
+	//boneshaderView->Release();
+	//boneSample->Release();
+	//boxConstant->Release();
+	//for (int i = 0; i < boneConstant.size(); i++)
+	//{
+	//	boneConstant[i]->Release();
+	//}
+
 	UnregisterClass(L"RTA Project", application);
 	return true;
 }
