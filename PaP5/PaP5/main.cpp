@@ -402,7 +402,6 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 #pragma endregion
 
 #pragma region Teddy Buffers
-
 	std::vector<FBXData> teddyfbxVerts;
 	FBXE::Facade teddy;
 
@@ -429,7 +428,6 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 		teddyvertices[i].normal.x = tedarr[i].norms.x;
 		teddyvertices[i].normal.y = tedarr[i].norms.y;
 		teddyvertices[i].normal.z = tedarr[i].norms.z;
-
 		teddyindices[i] = i;
 	}
 
@@ -446,7 +444,6 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	teddyindexBufferDesc.CPUAccessFlags = 0;
 	teddyindexBufferDesc.MiscFlags = 0;
 	teddyindexBufferDesc.StructureByteStride = 0;
-
 #pragma endregion
 
 #pragma region FbxBox Loading
