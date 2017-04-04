@@ -20,6 +20,7 @@ using namespace DirectX;
 
 class WIN_APP
 {
+#pragma region Privates
 	HRESULT							hr;
 	HINSTANCE						application;
 	WNDPROC							appWndProc;
@@ -84,7 +85,9 @@ class WIN_APP
 	World boxWorld;
 	vector<World> boneWorld;
 	Light light;
+#pragma endregion
 
+#pragma region Publics
 public:
 
 	struct SIMPLE_VERTEX
@@ -176,6 +179,7 @@ public:
 
 	unsigned int n = 0;
 	unsigned int f = 0;
+#pragma endregion
 
 	WIN_APP(HINSTANCE hinst, WNDPROC proc);
 	bool Run();
@@ -878,7 +882,7 @@ bool WIN_APP::Run()
 		XMMATRIX straight = XMMatrixTranslation(0, 0.05f * 2, 0);
 		view.ViewMatrix = XMMatrixMultiply(straight, view.ViewMatrix);
 	}
-	if (GetAsyncKeyState(VK_LCONTROL))
+	if (GetAsyncKeyState(VK_LSHIFT))
 	{
 		XMMATRIX down = XMMatrixTranslation(0, -0.05f * 2, 0);
 		view.ViewMatrix = XMMatrixMultiply(down, view.ViewMatrix);
@@ -1095,44 +1099,42 @@ bool WIN_APP::Run()
 	//	deviceContext->DrawIndexed(vertCount, 0, 0);
 	//}
 
-	if (ModelRendered == 2)
+
+	deviceContext->RSSetState(wireState);
+	deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
+	deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
+	deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
+	deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
+	
+	deviceContext->IASetInputLayout(groundInputlayout);
+	deviceContext->VSSetShader(groundVertshader, NULL, 0);
+	deviceContext->PSSetShader(groundPixshader, NULL, 0);
+	deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
+	deviceContext->PSSetSamplers(0, 1, &teddySample);
+	
+	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	
+	deviceContext->DrawIndexed(teddyVertcount, 0, 0);
+
+	if (ModelRendered == 1)
 	{
-		deviceContext->RSSetState(wireState);
-		deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
-		deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
-		deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
-		deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
-	
-		deviceContext->IASetInputLayout(groundInputlayout);
-		deviceContext->VSSetShader(groundVertshader, NULL, 0);
-		deviceContext->PSSetShader(groundPixshader, NULL, 0);
-		deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
-		deviceContext->PSSetSamplers(0, 1, &teddySample);
-	
-		deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	
-		deviceContext->DrawIndexed(teddyVertcount, 0, 0);
-	}
-
-	if (ModelRendered == 3)
-	{
-		deviceContext->RSSetState(wireState);
-		deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
-		deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
-		deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
-		deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
-
-		deviceContext->IASetInputLayout(groundInputlayout);
-		deviceContext->VSSetShader(groundVertshader, NULL, 0);
-		deviceContext->PSSetShader(groundPixshader, NULL, 0);
-		deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
-		deviceContext->PSSetSamplers(0, 1, &teddySample);
-
-		deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		deviceContext->DrawIndexed(teddyVertcount, 0, 0);
-
-		deviceContext->RSSetState(solidState);
+		//deviceContext->RSSetState(wireState);
+		//deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
+		//deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
+		//deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
+		//deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
+		//
+		//deviceContext->IASetInputLayout(groundInputlayout);
+		//deviceContext->VSSetShader(groundVertshader, NULL, 0);
+		//deviceContext->PSSetShader(groundPixshader, NULL, 0);
+		//deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
+		//deviceContext->PSSetSamplers(0, 1, &teddySample);
+		//
+		//deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		//
+		//deviceContext->DrawIndexed(teddyVertcount, 0, 0);
+		//
+		//deviceContext->RSSetState(solidState);
 
 		for (size_t i = 0; i < joints.size(); i++)
 		{

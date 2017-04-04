@@ -1,0 +1,8 @@
+---Camera---
+W,A,S,D = Moving forward, left, down, right
+Left Shift = Move camera directly down
+Space = Move camera directly up
+Left click and hold = Move camera around
+
+---Render Controls---
+Press 1 = Shows joints of model
