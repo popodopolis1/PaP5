@@ -198,7 +198,6 @@ namespace DllExport
 			{
 				continue;
 			}
-		
 			unsigned int numOfClusters = skin->GetClusterCount();
 			for (unsigned int x = 0; x < numOfClusters; ++x)
 			{
@@ -248,11 +247,8 @@ namespace DllExport
 					frame->mGlobalTransform = transformOffset.Inverse() * cluster->GetLink()->EvaluateGlobalTransform(time);
 					animation.frames.push_back(frame);
 				}
-		
 			}
-		
 		}
-		
 		//BlendingIndexWeightPair blendingIndexWeightPair;
 		//blendingIndexWeightPair.mBlendingIndex = 0;
 		//blendingIndexWeightPair.mBlendingWeight = 0;
