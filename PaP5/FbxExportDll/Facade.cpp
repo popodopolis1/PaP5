@@ -181,12 +181,27 @@ namespace FBXE
 		for (int i = 0; i < exporter->getSkelton().mJoints.size(); i++)
 		{
 			FbxAMatrix a = exporter->getSkelton().mJoints[i].mGlobalBindposeInverse.Inverse();
-			FbxVector4 b = a.GetRow(3);
+			FbxVector4 b = a.GetRow(0);
+			FbxVector4 c = a.GetRow(1);
+			FbxVector4 d = a.GetRow(2);
+			FbxVector4 e = a.GetRow(3);
 			JointVertex vert;
-			vert.x = b.mData[0];
-			vert.y = b.mData[1];
-			vert.z = b.mData[2];
-			vert.w = b.mData[3];
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v] = b.mData[v];
+			}
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v+4] = c.mData[v];
+			}
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v+8] = d.mData[v];
+			}
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v+12] = e.mData[v];
+			}
 			outJoints.push_back(vert);
 		}
 		return outJoints;
@@ -207,12 +222,28 @@ namespace FBXE
 		for (int i = 0; i < exporter->getAnimation().numFrame; i++)
 		{
 			FbxAMatrix a = exporter->getAnimation().frames[i]->mGlobalTransform;
-			FbxVector4 b = a.GetRow(3);
+			FbxVector4 b = a.GetRow(0);
+			FbxVector4 c = a.GetRow(1);
+			FbxVector4 d = a.GetRow(2);
+			FbxVector4 e = a.GetRow(3);
+
 			JointVertex vert;
-			vert.x = b.mData[0];
-			vert.y = b.mData[1];
-			vert.z = b.mData[2];
-			vert.w = b.mData[3];
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v] = b.mData[v];
+			}
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v + 4] = c.mData[v];
+			}
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v + 8] = d.mData[v];
+			}
+			for (int v = 0; v < 4; v++)
+			{
+				vert.global_xform[v + 12] = e.mData[v];
+			}
 			outFrames.push_back(vert);
 		}
 		return outFrames;

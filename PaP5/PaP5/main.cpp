@@ -414,7 +414,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	frames = teddy.GetKeyframes(frames, "Teddy_Idle.fbx");
 
 	SIMPLE_VERTEX* teddyvertices = new SIMPLE_VERTEX[tedVerts];
-
+	
 	unsigned int* teddyindices = new unsigned int[tedIndexes];
 
 	FBXData* tedarr = &teddyfbxVerts[0];
@@ -736,10 +736,10 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 		JointVertex boneJoint;
 		boneJoint = joints[i];
 		bone.WorldMatrix = XMMatrixIdentity();
-		bone.WorldMatrix.r[3].m128_f32[0] = boneJoint.x;
-		bone.WorldMatrix.r[3].m128_f32[1] = boneJoint.y;
-		bone.WorldMatrix.r[3].m128_f32[2] = boneJoint.z;
-		bone.WorldMatrix.r[3].m128_f32[3] = boneJoint.w;
+		bone.WorldMatrix.r[3].m128_f32[0] = boneJoint.global_xform[12];
+		bone.WorldMatrix.r[3].m128_f32[1] = boneJoint.global_xform[13];
+		bone.WorldMatrix.r[3].m128_f32[2] = boneJoint.global_xform[14];
+		bone.WorldMatrix.r[3].m128_f32[3] = boneJoint.global_xform[15];
 
 		boneWorld.push_back(bone);
 	}
@@ -1135,7 +1135,7 @@ bool WIN_APP::Run()
 		//
 		//deviceContext->DrawIndexed(teddyVertcount, 0, 0);
 		//
-		//deviceContext->RSSetState(solidState);
+		deviceContext->RSSetState(solidState);
 
 		for (size_t i = 0; i < joints.size(); i++)
 		{

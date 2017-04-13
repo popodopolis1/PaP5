@@ -238,7 +238,6 @@ namespace DllExport
 		
 				for (FbxLongLong z = start.GetFrameCount(FbxTime::eFrames24); z <= end.GetFrameCount(FbxTime::eFrames24); ++z)
 				{
-					
 					FbxTime time;
 					time.SetFrame(z, FbxTime::eFrames24);
 					Keyframe* frame = new Keyframe();

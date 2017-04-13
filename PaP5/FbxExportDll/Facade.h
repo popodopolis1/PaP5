@@ -16,10 +16,11 @@ struct Vertex
 
 struct JointVertex
 {
-	float x;
-	float y;
-	float z;
-	float w;
+	//float x;
+	//float y;
+	//float z;
+	//float w;
+	float global_xform[16];
 };
 
 struct Normal
