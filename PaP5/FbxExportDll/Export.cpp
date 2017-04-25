@@ -326,7 +326,7 @@ namespace DllExport
 				case FbxGeometryElement::eIndexToDirect:
 				{
 					outUV.x = static_cast<float>(uv->GetDirectArray().GetAt(inTextureUVIndex).mData[0]);
-					outUV.y = static_cast<float>(uv->GetDirectArray().GetAt(inTextureUVIndex).mData[1]);
+					outUV.y = 1 - static_cast<float>(uv->GetDirectArray().GetAt(inTextureUVIndex).mData[1]);
 				}
 				break;
 

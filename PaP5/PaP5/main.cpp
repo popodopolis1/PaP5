@@ -259,7 +259,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 
 	D3D11_RASTERIZER_DESC descRas = {};
 	descRas.FillMode = D3D11_FILL_SOLID;
-	descRas.CullMode = D3D11_CULL_FRONT;
+	descRas.CullMode = D3D11_CULL_NONE;
 	descRas.FrontCounterClockwise = FALSE;
 	descRas.DepthBias = 0;
 	descRas.SlopeScaledDepthBias = 0.0f;
@@ -272,7 +272,7 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	device->CreateRasterizerState(&descRas, &solidState);
 
 	descRas.FillMode = D3D11_FILL_WIREFRAME;
-	descRas.CullMode = D3D11_CULL_BACK;
+	//descRas.CullMode = D3D11_CULL_BACK;
 
 	device->CreateRasterizerState(&descRas, &wireState);
 
@@ -974,8 +974,6 @@ bool WIN_APP::Run()
 		view.ViewMatrix.r[3].m128_f32[0] = Store.r[3].m128_f32[0];
 		view.ViewMatrix.r[3].m128_f32[1] = Store.r[3].m128_f32[1];
 		view.ViewMatrix.r[3].m128_f32[2] = Store.r[3].m128_f32[2];
-
-
 	}
 
 	//light.spotPosition = { view.ViewMatrix.r[3].m128_f32[0], view.ViewMatrix.r[3].m128_f32[1], view.ViewMatrix.r[3].m128_f32[2], view.ViewMatrix.r[3].m128_f32[3] };
@@ -1102,6 +1100,10 @@ bool WIN_APP::Run()
 
 
 	deviceContext->RSSetState(wireState);
+	if (ModelRendered == 3)
+	{
+		deviceContext->RSSetState(solidState);
+	}
 	deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
 	deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
 	deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);

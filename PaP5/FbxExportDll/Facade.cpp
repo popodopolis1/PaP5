@@ -22,12 +22,11 @@ namespace FBXE
 		exporter->ProcessSkeletonHierarchy(node);
 		//exporter->ProcessGeometry(node);
 		
+		FBXData fbx;
+		vector<PNMVertex> tempFbx = exporter->getVertices();
 
-		for (unsigned int i = 0; i < exporter->getVertices().size(); i++)
+		for (unsigned int i = 0; i < tempFbx.size(); i++)
 		{
-			FBXData fbx;
-			vector<PNMVertex> tempFbx = exporter->getVertices();
-
 			fbx.verts.x = tempFbx[i].mPosition.x;
 			fbx.verts.y = tempFbx[i].mPosition.y;
 			fbx.verts.z = tempFbx[i].mPosition.z;
