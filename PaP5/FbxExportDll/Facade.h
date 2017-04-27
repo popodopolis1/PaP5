@@ -55,6 +55,7 @@ namespace FBXE
 		//std::vector<XMMATRIX> GetJoints(std::vector<XMMATRIX> outJoints, const char* file);
 		std::vector<JointVertex> GetJoints(std::vector<JointVertex> outJoints, const char* file);
 		std::vector<JointVertex> GetKeyframes(std::vector<JointVertex> outFrames, const char* file);
+		float GetAnimationDuration(std::vector<JointVertex> outFrames, const char* file);
 	};
 }
 

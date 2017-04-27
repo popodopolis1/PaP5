@@ -16,7 +16,7 @@ namespace FBXE
 		exporter->LoadScene(file);
 		FbxScene* scene = exporter->getScene();
 		FbxNode* node = scene->GetRootNode();
-		int track = scene->GetNodeCount(); 
+		int track = scene->GetNodeCount();
 		exporter->ProcessControlPoints(node);
 		exporter->ProcessMesh(scene->GetRootNode());
 		exporter->ProcessSkeletonHierarchy(node);
@@ -246,5 +246,20 @@ namespace FBXE
 			outFrames.push_back(vert);
 		}
 		return outFrames;
+	}
+	float Facade::GetAnimationDuration(std::vector<JointVertex> outFrames, const char * file)
+	{
+		Export* exporter = new Export();
+		exporter->Initialize();
+		exporter->LoadScene(file);
+		FbxScene* scene = exporter->getScene();
+		FbxNode* node = scene->GetRootNode();
+		int track = scene->GetNodeCount();
+		exporter->ProcessControlPoints(node);
+		exporter->ProcessMesh(scene->GetRootNode());
+		exporter->ProcessSkeletonHierarchy(node);
+		exporter->ProcessJointAndAnimations(node);
+
+		return exporter->getAnimation().duration;
 	}
 }

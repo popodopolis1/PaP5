@@ -17,6 +17,7 @@ using namespace DirectX;
 
 #include "DDSTextureLoader.h"
 #include "Facade.h"
+#include "XTime.h"
 
 class WIN_APP
 {
@@ -32,6 +33,7 @@ class WIN_APP
 	IDXGISwapChain *swapChain;
 	D3D11_VIEWPORT viewport;
 
+	XTime timer;
 
 	ID3D11InputLayout *groundInputlayout;
 
@@ -45,9 +47,11 @@ class WIN_APP
 
 	ID3D11RasterizerState* solidState;
 	ID3D11RasterizerState* wireState;
-
+	
 	XMMATRIX Camera;
-
+	vector<XMMATRIX> jointMats;
+	vector<XMMATRIX> frameMats;
+	
 	int ModelRendered = 0;
 
 	struct World
@@ -84,6 +88,7 @@ class WIN_APP
 	World skyboxWorld;
 	World boxWorld;
 	vector<World> boneWorld;
+	vector<World> bindPose;
 	Light light;
 #pragma endregion
 
@@ -156,6 +161,7 @@ public:
 
 	std::vector<JointVertex> joints;
 	std::vector<JointVertex> frames;
+	std::vector<float> keyTimes;
 
 	ID3D11ShaderResourceView *teddyshaderView;
 
@@ -177,6 +183,10 @@ public:
 	vector<ID3D11Buffer*> boneConstant;
 	D3D11_BUFFER_DESC boneConstantdesc;
 
+	int count = 0;
+	bool loop = false;
+	float animDur = 0;
+
 	unsigned int n = 0;
 	unsigned int f = 0;
 #pragma endregion
@@ -185,6 +195,31 @@ public:
 	bool Run();
 	bool ShutDown();
 };
+
+XMMATRIX floatArrayToMatrix(float arr[16])
+{
+	XMMATRIX temp(arr[0], arr[1], arr[2], arr[3], arr[4], arr[5], arr[6], arr[7], arr[8], arr[9], arr[10], arr[11], arr[12], arr[13], arr[14], arr[15]);
+	return temp;
+}
+
+vector<float> keyframeTimes(float duration, vector<JointVertex> frms)
+{
+	vector<float> times;
+	float tmp = 0; 
+	tmp = duration / frms.size();
+	for (int i = 0; i < frms.size(); i++)
+	{
+		if (i == 0)
+		{
+			times.push_back(tmp);
+		}
+		else
+		{
+			times.push_back(tmp + times[i-1]);
+		}
+	}
+	return times;
+}
 
 WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 {
@@ -410,8 +445,24 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	int tedVerts = teddyfbxVerts.size();
 	teddyVertcount = tedVerts;
 	int tedIndexes = tedVerts;
+	
+	for (int i = 0; i < joints.size(); i++)
+	{
+		XMMATRIX temp = floatArrayToMatrix(joints[i].global_xform);
+		jointMats.push_back(temp);
+	}
 
 	frames = teddy.GetKeyframes(frames, "Teddy_Idle.fbx");
+
+	for (int i = 0; i < frames.size(); i++)
+	{
+		XMMATRIX temp = floatArrayToMatrix(frames[i].global_xform);
+		frameMats.push_back(temp);
+	}
+
+	animDur = teddy.GetAnimationDuration(frames, "Teddy_Idle.fbx");
+
+	keyTimes = keyframeTimes(animDur, frames);
 
 	SIMPLE_VERTEX* teddyvertices = new SIMPLE_VERTEX[tedVerts];
 	
@@ -734,16 +785,17 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	{
 		World bone;
 		JointVertex boneJoint;
-		boneJoint = joints[i];
-		bone.WorldMatrix = XMMatrixIdentity();
-		bone.WorldMatrix.r[3].m128_f32[0] = boneJoint.global_xform[12];
-		bone.WorldMatrix.r[3].m128_f32[1] = boneJoint.global_xform[13];
-		bone.WorldMatrix.r[3].m128_f32[2] = boneJoint.global_xform[14];
-		bone.WorldMatrix.r[3].m128_f32[3] = boneJoint.global_xform[15];
-
+		//boneJoint = joints[i];
+		bone.WorldMatrix = jointMats[i];
+		//bone.WorldMatrix = XMMatrixIdentity();
+		//bone.WorldMatrix.r[3].m128_f32[0] = boneJoint.global_xform[12];
+		//bone.WorldMatrix.r[3].m128_f32[1] = boneJoint.global_xform[13];
+		//bone.WorldMatrix.r[3].m128_f32[2] = boneJoint.global_xform[14];
+		//bone.WorldMatrix.r[3].m128_f32[3] = boneJoint.global_xform[15];
 		boneWorld.push_back(bone);
 	}
 
+	bindPose = boneWorld;
 	XMMATRIX projection;
 
 	projection = XMMatrixPerspectiveFovLH(XMConvertToRadians(65.0f), (1280.0f / 720.0f), 0.1f, 1000.0f);
@@ -865,6 +917,8 @@ WIN_APP::WIN_APP(HINSTANCE hinst, WNDPROC proc)
 	device->CreateInputLayout(boxLayout, ARRAYSIZE(boxLayout), GroundShader_VS, sizeof(GroundShader_VS), &boxInputLayout);
 #pragma endregion
 
+	timer.Signal();
+
 }
 
 bool WIN_APP::Run()
@@ -876,6 +930,61 @@ bool WIN_APP::Run()
 #pragma endregion
 
 #pragma region Camera and Light Controls
+	if (GetAsyncKeyState('L') & 0x01)
+	{
+		loop = !loop;
+		//timer.Restart();
+		//timer.Signal();
+	}
+
+	if (loop == true)
+	{
+		if (timer.TotalTime() >= animDur)
+		{
+			//timer.Restart();
+			//timer.Signal();
+		}
+
+		if (timer.TotalTime() >= keyTimes[f])
+		{
+			for (unsigned int i = 0; i < joints.size(); i++)
+			{
+				XMMATRIX boneJoint;
+				boneJoint = frameMats[f];
+				//boneWorld[i].WorldMatrix = XMMatrixIdentity();
+				boneWorld[i].WorldMatrix = XMMatrixMultiply(boneWorld[i].WorldMatrix, boneJoint);
+			}
+			f++;
+		}
+	}
+	
+	if (GetAsyncKeyState('N') & 0x01)
+	{
+		if (count == frames.size())
+		{
+			count = 0;
+		}
+			
+			for (unsigned int i = 0; i < joints.size(); i++)
+			{
+				XMMATRIX boneJoint;
+				boneJoint = frameMats[count];
+				//boneWorld[i].WorldMatrix = XMMatrixIdentity();
+				
+				boneWorld[i].WorldMatrix = XMMatrixMultiply(jointMats[i], boneJoint);
+			}
+
+			count++;
+	}
+
+	if (GetAsyncKeyState(VK_INSERT))
+	{
+		for (size_t i = 0; i < joints.size(); i++)
+		{
+			boneWorld[i].WorldMatrix = bindPose[i].WorldMatrix;
+		}
+	}
+
 	if (GetAsyncKeyState(VK_SPACE))
 	{
 		XMMATRIX straight = XMMatrixTranslation(0, 0.05f * 2, 0);
@@ -1117,7 +1226,7 @@ bool WIN_APP::Run()
 	
 	deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	
-	deviceContext->DrawIndexed(teddyVertcount, 0, 0);
+	//deviceContext->DrawIndexed(teddyVertcount, 0, 0);
 
 	if (ModelRendered == 1)
 	{
@@ -1136,6 +1245,45 @@ bool WIN_APP::Run()
 		//deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		//
 		//deviceContext->DrawIndexed(teddyVertcount, 0, 0);
+		//
+		deviceContext->RSSetState(solidState);
+
+		for (size_t i = 0; i < joints.size(); i++)
+		{
+			deviceContext->VSSetConstantBuffers(0, 1, &boneConstant[i]);
+			deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
+			deviceContext->IASetVertexBuffers(0, 1, &boneVertex, &stride, &offset);
+			deviceContext->IASetIndexBuffer(boneIndex, DXGI_FORMAT_R32_UINT, 0);
+
+			deviceContext->IASetInputLayout(groundInputlayout);
+			deviceContext->VSSetShader(groundVertshader, NULL, 0);
+			deviceContext->PSSetShader(groundPixshader, NULL, 0);
+			deviceContext->PSSetShaderResources(0, 1, &boneshaderView);
+			deviceContext->PSSetSamplers(0, 1, &boneSample);
+
+			deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+			deviceContext->DrawIndexed(boneVertcount, 0, 0);
+		}
+	}
+
+	if (ModelRendered == 2)
+	{
+		deviceContext->RSSetState(wireState);
+		//deviceContext->VSSetConstantBuffers(0, 1, &groundConstant);
+		//deviceContext->VSSetConstantBuffers(1, 1, &viewConstant);
+		//deviceContext->IASetVertexBuffers(0, 1, &teddyVertex, &stride, &offset);
+		//deviceContext->IASetIndexBuffer(teddyIndex, DXGI_FORMAT_R32_UINT, 0);
+		//
+		//deviceContext->IASetInputLayout(groundInputlayout);
+		//deviceContext->VSSetShader(groundVertshader, NULL, 0);
+		//deviceContext->PSSetShader(groundPixshader, NULL, 0);
+		//deviceContext->PSSetShaderResources(0, 1, &teddyshaderView);
+		//deviceContext->PSSetSamplers(0, 1, &teddySample);
+		//
+		//deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		//
+		deviceContext->DrawIndexed(teddyVertcount, 0, 0);
 		//
 		deviceContext->RSSetState(solidState);
 
