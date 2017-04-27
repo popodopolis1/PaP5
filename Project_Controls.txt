@@ -5,8 +5,13 @@ Space = Move camera directly up
 Left click and hold = Move camera around
 
 ---Render Controls---
+Press 1 = Shows joints of model
 Press 1 = Shows joints and wireframe of model
 Press 3 = Shows full mesh of teddy
 
 ---Light Controls---
 NumPad 2,4,6,8 = Changes directional light to show it working on mesh
+
+--Animation Controls--
+N = KeyFrame on press
+L = Loop through keyframes
